@@ -1,0 +1,58 @@
+# 源代码目录
+src/
+tests/
+
+# 配置文件
+tsconfig.json
+jest.config.js
+
+# 开发依赖
+.gitignore
+.git/
+.prettierrc*
+.eslintrc*
+
+# 测试和覆盖率
+coverage/
+.nyc_output
+
+# 文档和示例
+docs/
+examples/
+
+# 开发工具配置
+.vscode/
+.idea/
+
+# 临时文件
+*.tmp
+*.temp
+
+# 日志文件
+*.log
+
+# 开发脚本
+publish.sh
+test-publish.sh
+check-permissions.sh
+check-permissions-demo.sh
+
+# 开发文档
+NPM_PERMISSIONS.md
+PERMISSIONS_README.md
+PERMISSIONS_SUMMARY.md
+PUBLISH.md
+
+# 锁文件
+pnpm-lock.yaml
+yarn.lock
+
+# 本地配置
+.env*
+
+# 缓存目录
+.txread_cache/
+.txread/
+
+# 保留dist目录，确保编译后的文件包含在包中
+!dist/
