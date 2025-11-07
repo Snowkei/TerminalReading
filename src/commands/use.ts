@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs-extra';
-import { getWebDAVConfig, getFileReadingProgress, saveReadingProgress, getReadingProgress } from '../utils/config';
+import { getWebDAVConfig, getFileReadingProgress, saveReadingProgress, getReadingProgress, getGlobalCacheDir, getGlobalCacheFilePath, ensureGlobalCacheDir } from '../utils/config';
 import { WebDAVService } from '../services/webdav';
 
 export const useCommand = new Command('use')
@@ -82,46 +82,53 @@ export const useCommand = new Command('use')
         return;
       }
       
-      // 确保本地缓存目录存在
-      const cacheDir = path.join(process.cwd(), '.txread_cache');
-      if (!fs.existsSync(cacheDir)) {
-        fs.mkdirSync(cacheDir, { recursive: true });
-      }
+      // 确保全局缓存目录存在
+      ensureGlobalCacheDir();
       
-      const localFilePath = path.join(cacheDir, targetFile.name);
+      const localFilePath = getGlobalCacheFilePath(targetFile.name);
       
-      // 检查本地文件是否存在且未修改
-      let needDownload = true;
+      // 检查本地文件是否存在
       if (fs.existsSync(localFilePath)) {
-        const localStats = fs.statSync(localFilePath);
-        const localModifiedTime = localStats.mtime;
+        console.log(chalk.green(`文件已存在于本地缓存: ${targetFile.name}`));
+        console.log(chalk.blue('将直接使用本地缓存文件，无需重新下载'));
         
-        // 检查远程文件的修改时间
-        let remoteModifiedTime;
-        if (targetFile.lastModified instanceof Date) {
-          remoteModifiedTime = targetFile.lastModified;
-        } else if (typeof targetFile.lastModified === 'string') {
-          remoteModifiedTime = new Date(targetFile.lastModified);
+        // 保存当前使用的文件信息到全局缓存目录
+        const useInfo = {
+          filename: targetFile.name,
+          filePath: targetFile.path,
+          localFilePath,
+          lastUsed: new Date().toISOString()
+        };
+        
+        const useInfoPath = path.join(getGlobalCacheDir(), 'current.json');
+        fs.writeJsonSync(useInfoPath, useInfo, { spaces: 2 });
+        
+        console.log(chalk.green(`已选择文件: ${targetFile.name}`));
+        
+        // 显示阅读进度
+        const progress = getFileReadingProgress(targetFile.name);
+        if (progress) {
+          console.log(chalk.blue(`上次阅读位置: ${progress.chapter}`));
+          console.log(chalk.blue(`上次阅读时间: ${progress.lastReadTime.toLocaleString()}`));
+        } else {
+          console.log(chalk.yellow('尚未开始阅读此文件'));
         }
         
-        if (remoteModifiedTime && localModifiedTime >= remoteModifiedTime) {
-          console.log(chalk.green(`本地文件已是最新版本: ${targetFile.name}`));
-          needDownload = false;
-        }
+        console.log(chalk.green('现在可以使用 "txread look" 开始阅读'));
+        return;
       }
       
-      if (needDownload) {
-        console.log(chalk.blue(`正在下载文件: ${targetFile.name}`));
-        
-        // 使用带进度条的下载方法
-        const success = await webdavService.downloadFileWithProgress(targetFile.path, localFilePath);
-        if (!success) {
-          console.log(chalk.red('文件下载失败'));
-          return;
-        }
+      // 本地文件不存在，需要下载
+      console.log(chalk.blue(`文件不存在于本地缓存，正在下载: ${targetFile.name}`));
+      
+      // 使用带进度条的下载方法
+      const success = await webdavService.downloadFileWithProgress(targetFile.path, localFilePath);
+      if (!success) {
+        console.log(chalk.red('文件下载失败'));
+        return;
       }
       
-      // 保存当前使用的文件信息
+      // 保存当前使用的文件信息到全局缓存目录
       const useInfo = {
         filename: targetFile.name,
         filePath: targetFile.path,
@@ -129,7 +136,7 @@ export const useCommand = new Command('use')
         lastUsed: new Date().toISOString()
       };
       
-      const useInfoPath = path.join(cacheDir, 'current.json');
+      const useInfoPath = path.join(getGlobalCacheDir(), 'current.json');
       fs.writeJsonSync(useInfoPath, useInfo, { spaces: 2 });
       
       console.log(chalk.green(`已选择文件: ${targetFile.name}`));

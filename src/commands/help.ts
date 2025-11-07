@@ -11,8 +11,9 @@ export const helpCommand = new Command('help')
     console.log('  upload              上传本地文件到WebDAV服务器');
     console.log('  list                获取WebDAV服务器上的文件列表');
     console.log('  use <filename>      选择要阅读的文件');
-    console.log('  review [file]   解析文件，展示章节目录');
+    console.log('  review [file]       解析文件，展示章节目录');
     console.log('  look [chapter]      开始阅读文件');
+    console.log('  settings            管理应用设置和配置');
     console.log('  help                显示此帮助信息\n');
     
     console.log(chalk.yellow.bold('详细说明:'));
@@ -42,12 +43,25 @@ export const helpCommand = new Command('help')
     console.log(chalk.white.bold('  review'));
     console.log('    解析文件，展示章节目录');
     console.log('    参数:');
-    console.log('      filename                    文件名 (可选，如果已使用use命令选择文件)\n');
+    console.log('      filename                    文件名 (可选，如果已使用use命令选择文件)');
+    console.log('    选项:');
+    console.log('      -p, --page <number>        指定要显示的页码 (默认: 1)');
+    console.log('      -s, --page-size <number>  每页显示的章节数量 (默认: 50)\n');
     
     console.log(chalk.white.bold('  look'));
     console.log('    开始阅读文件');
     console.log('    参数:');
     console.log('      chapter                     章节名称 (可选)\n');
+    
+    console.log(chalk.white.bold('  settings'));
+    console.log('    管理应用设置和配置，支持跨设备同步');
+    console.log('    选项:');
+    console.log('      -s, --sync                  从WebDAV同步配置');
+    console.log('      -u, --upload                上传配置到WebDAV');
+    console.log('      --show                      显示当前配置 (默认操作)');
+    console.log('      --set-chapters-per-page <number>  设置每页显示的章节数量 (5-100)');
+    console.log('      --set-lines-per-page <number>     设置每页显示的行数 (10-100)');
+    console.log('      --set-font-size <number>          设置字体大小 (8-32)\n');
     
     console.log(chalk.yellow.bold('阅读器快捷键:'));
     console.log('  q 或 C-c        退出阅读器');
@@ -66,4 +80,8 @@ export const helpCommand = new Command('help')
     console.log('  txread review');
     console.log('  txread look');
     console.log('  txread look "第一章"');
+    console.log('  txread settings');
+    console.log('  txread settings --set-chapters-per-page 30');
+    console.log('  txread settings --upload');
+    console.log('  txread settings --sync');
   });

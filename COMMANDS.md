@@ -199,7 +199,68 @@ npm start -- look "第十章 开始"
 
 ---
 
-### 7. help - 帮助信息
+### 7. settings - 阅读设置
+
+管理应用设置和配置，包括阅读参数和自定义快捷键。
+
+#### 语法
+```bash
+npm start -- settings [options]
+```
+
+#### 选项
+- `-s, --sync`: 从WebDAV同步配置
+- `-u, --upload`: 上传配置到WebDAV
+- `--show`: 显示当前配置
+- `--set-chapters-per-page <number>`: 设置每页显示的章节数量 (5-100)
+- `--set-lines-per-page <number>`: 设置每页显示的行数 (10-100)
+- `--set-font-size <number>`: 设置字体大小 (8-32)
+- `--set-clear-terminal <boolean>`: 设置翻页时是否清空终端 (true/false)
+- `--set-prev-keys <keys>`: 设置上一章快捷键 (用逗号分隔，如: 1,up,[)
+- `--set-next-keys <keys>`: 设置下一章快捷键 (用逗号分隔，如: 2,down,])
+- `--set-exit-keys <keys>`: 设置退出快捷键 (用逗号分隔，如: q,ctrl+c)
+- `--set-help-keys <keys>`: 设置帮助快捷键 (用逗号分隔，如: h,?)
+- `--set-chapter-list-keys <keys>`: 设置章节列表快捷键 (用逗号分隔，如: g)
+
+#### 示例
+```bash
+# 显示当前配置
+npm start -- settings --show
+
+# 设置每页显示行数
+npm start -- settings --set-lines-per-page 30
+
+# 设置翻页时不清空终端
+npm start -- settings --set-clear-terminal false
+
+# 设置自定义快捷键
+npm start -- settings --set-prev-keys w
+npm start -- settings --set-next-keys e
+
+# 设置多个快捷键
+npm start -- settings --set-prev-keys 1,up,[
+npm start -- settings --set-next-keys 2,down,]
+
+# 同步配置到WebDAV
+npm start -- settings --upload
+
+# 从WebDAV同步配置
+npm start -- settings --sync
+```
+
+#### 说明
+- 所有设置都会自动保存到本地配置文件
+- 配置可以上传到WebDAV服务器，实现多设备同步
+- 快捷键设置支持多个按键，用逗号分隔
+- 有效的上一章快捷键：1, up, [
+- 有效的下一章快捷键：2, down, ]
+- 有效的退出快捷键：q, ctrl+c
+- 有效的帮助快捷键：h, ?
+- 有效的章节列表快捷键：g
+
+---
+
+### 8. help - 帮助信息
 
 显示帮助信息。
 
@@ -241,10 +302,9 @@ npm start -- help
 - 所有快捷键操作都会自动保存阅读进度
 - 退出阅读器时，进度会自动同步到WebDAV服务器
 - 支持跨设备阅读进度同步
+- 快捷键可以通过settings命令自定义，例如：`npm start -- settings --set-prev-keys w`
 
 ---
-
-## 常见使用流程
 
 ### 首次使用
 1. 配置WebDAV连接：
@@ -267,12 +327,19 @@ npm start -- help
    npm start -- use "book.txt"
    ```
 
-5. 查看章节目录：
+5. 自定义阅读设置（可选）：
+   ```bash
+   npm start -- settings --show
+   npm start -- settings --set-lines-per-page 30
+   npm start -- settings --set-prev-keys w
+   ```
+
+6. 查看章节目录：
    ```bash
    npm start -- review
    ```
 
-6. 开始阅读：
+7. 开始阅读：
    ```bash
    npm start -- look
    ```

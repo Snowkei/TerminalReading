@@ -54,14 +54,17 @@ export const listCommand = new Command('list')
         let progressInfo = '未开始';
         
         if (file.hasProgress && file.progress) {
-          const { chapter, lastReadTime } = file.progress;
+          const { chapter, lastReadTime, chapterIndex } = file.progress;
           let lastRead = '';
           if (lastReadTime instanceof Date) {
             lastRead = lastReadTime.toLocaleDateString();
           } else if (typeof lastReadTime === 'string') {
             lastRead = new Date(lastReadTime).toLocaleDateString();
           }
-          progressInfo = `${chapter} (${lastRead})`;
+          const chapterLabel = typeof chapterIndex === 'number' && chapterIndex >= 0
+            ? `第${chapterIndex + 1}章 ${chapter}`
+            : chapter;
+          progressInfo = `${chapterLabel} (${lastRead})`;
         }
         
         table.push([

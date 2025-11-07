@@ -34,41 +34,54 @@ export const uploadCommand = new Command('upload')
         return;
       }
       
-      console.log(chalk.blue('正在上传文件...'));
-      
       // 如果是目录，递归上传所有文件
       if (fs.statSync(localPath).isDirectory()) {
+        console.log(chalk.blue('正在上传目录中的文件...'));
         const files = fs.readdirSync(localPath);
         let successCount = 0;
         let failCount = 0;
+        let totalSize = 0;
+        
+        // 计算总大小
+        for (const file of files) {
+          const filePath = path.join(localPath, file);
+          if (fs.statSync(filePath).isFile()) {
+            totalSize += fs.statSync(filePath).size;
+          }
+        }
+        
+        console.log(chalk.blue(`总共需要上传 ${files.length} 个文件，总大小: ${(totalSize / 1024 / 1024).toFixed(2)} MB`));
         
         for (const file of files) {
           const filePath = path.join(localPath, file);
           const remoteFilePath = path.posix.join(remotePath, file);
           
           if (fs.statSync(filePath).isFile()) {
-            const success = await webdavService.uploadFile(filePath, remoteFilePath);
+            const success = await webdavService.uploadFileWithProgress(filePath, remoteFilePath, file);
             if (success) {
-              console.log(chalk.green(`✓ ${file} 上传成功`));
+              console.log(chalk.green(`\n✓ ${file} 上传成功`));
               successCount++;
             } else {
-              console.log(chalk.red(`✗ ${file} 上传失败`));
+              console.log(chalk.red(`\n✗ ${file} 上传失败`));
               failCount++;
             }
           }
         }
         
-        console.log(chalk.blue(`上传完成: 成功 ${successCount} 个文件，失败 ${failCount} 个文件`));
+        console.log(chalk.blue(`\n上传完成: 成功 ${successCount} 个文件，失败 ${failCount} 个文件`));
       } else {
         // 单个文件上传
         const fileName = path.basename(localPath);
         const remoteFilePath = path.posix.join(remotePath, fileName);
+        const fileSize = fs.statSync(localPath).size;
         
-        const success = await webdavService.uploadFile(localPath, remoteFilePath);
+        console.log(chalk.blue(`正在上传文件 ${fileName} (${(fileSize / 1024 / 1024).toFixed(2)} MB)...`));
+        
+        const success = await webdavService.uploadFileWithProgress(localPath, remoteFilePath, fileName);
         if (success) {
-          console.log(chalk.green(`文件 ${fileName} 上传成功`));
+          console.log(chalk.green(`\n文件 ${fileName} 上传成功`));
         } else {
-          console.log(chalk.red(`文件 ${fileName} 上传失败`));
+          console.log(chalk.red(`\n文件 ${fileName} 上传失败`));
         }
       }
     } catch (error) {

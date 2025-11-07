@@ -1,8 +1,9 @@
 import { createClient } from 'webdav';
-import { WebDAVConfig, FileInfo, ReadingProgress } from '../types';
+import { WebDAVConfig, FileInfo, ReadingProgress, AppConfig } from '../types';
 import * as path from 'path';
 import * as fs from 'fs-extra';
 import ProgressBar from 'progress';
+import { getWebDAVConfigFileName } from '../utils/config';
 
 export class WebDAVService {
   private client: any;
@@ -59,6 +60,48 @@ export class WebDAVService {
     }
   }
 
+  // 上传文件（带进度条）
+  async uploadFileWithProgress(localPath: string, remotePath: string, fileName?: string): Promise<boolean> {
+    if (!this.client) {
+      console.error('WebDAV客户端未初始化');
+      return false;
+    }
+
+    try {
+      // 确保远程目录存在
+      const remoteDir = path.dirname(remotePath);
+      await this.ensureRemoteDirectory(remoteDir);
+      
+      // 获取文件大小
+      const fileStats = await fs.stat(localPath);
+      const fileSize = fileStats.size;
+      const displayName = fileName || path.basename(localPath);
+      
+      // 创建进度条
+      const progressBar = new ProgressBar(`上传 ${displayName} [:bar] :percent :etas`, {
+        complete: '=',
+        incomplete: ' ',
+        width: 40,
+        total: fileSize
+      });
+      
+      // 创建读取流
+      const readStream = fs.createReadStream(localPath);
+      
+      // 上传文件流
+      await this.client.putFileContents(remotePath, readStream, {
+        onUploadProgress: (progress: { loaded: number; total: number }) => {
+          progressBar.tick(progress.loaded - progressBar.curr);
+        }
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('上传文件失败:', error);
+      return false;
+    }
+  }
+
   // 确保远程目录存在
   private async ensureRemoteDirectory(remotePath: string): Promise<void> {
     if (!this.client) return;
@@ -89,8 +132,8 @@ export class WebDAVService {
       
       for (const item of contents) {
         if (item.type === 'file') {
-          // 过滤掉进度文件
-          if (item.basename === this.PROGRESS_FILE_NAME) {
+          // 过滤掉进度文件和配置文件
+          if (item.basename === this.PROGRESS_FILE_NAME || item.basename === getWebDAVConfigFileName()) {
             continue;
           }
           
@@ -108,7 +151,8 @@ export class WebDAVService {
           try {
             const dirContents = await this.client.getDirectoryContents(item.filename) as any[];
             const matchingFile = dirContents.find((dirItem: any) => 
-              dirItem.type === 'file' && dirItem.basename === item.basename && dirItem.basename !== this.PROGRESS_FILE_NAME
+              dirItem.type === 'file' && dirItem.basename === item.basename && 
+              dirItem.basename !== this.PROGRESS_FILE_NAME && dirItem.basename !== getWebDAVConfigFileName()
             );
             
             if (matchingFile) {
@@ -242,6 +286,33 @@ export class WebDAVService {
     } catch (error) {
       // 进度文件不存在或读取失败，返回空数组
       return [];
+    }
+  }
+
+  // 同步应用配置到WebDAV
+  async syncAppConfig(config: AppConfig): Promise<boolean> {
+    if (!this.client) return false;
+    
+    try {
+      const configContent = JSON.stringify(config, null, 2);
+      await this.client.putFileContents(getWebDAVConfigFileName(), configContent);
+      return true;
+    } catch (error) {
+      console.error('同步应用配置失败:', error);
+      return false;
+    }
+  }
+
+  // 从WebDAV获取应用配置
+  async fetchAppConfig(): Promise<AppConfig | null> {
+    if (!this.client) return null;
+    
+    try {
+      const configContent = await this.client.getFileContents(getWebDAVConfigFileName(), { format: 'text' }) as string;
+      return JSON.parse(configContent);
+    } catch (error) {
+      // 配置文件不存在或读取失败，返回null
+      return null;
     }
   }
 }

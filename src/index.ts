@@ -11,6 +11,7 @@ import { useCommand } from './commands/use';
 import { reviewCommand } from './commands/review';
 import { lookCommand } from './commands/look';
 import { helpCommand } from './commands/help';
+import { settingsCommand } from './commands/settings';
 
 // 确保当前文件有可执行权限
 const currentFilePath = __filename;
@@ -30,7 +31,7 @@ const program = new Command();
 program
   .name('txread')
   .description('终端阅读工具 - 支持WebDAV同步的txt文件阅读器')
-  .version('0.0.1');
+  .version('0.0.2');
 
 // 注册命令
 program.addCommand(configCommand);
@@ -40,6 +41,7 @@ program.addCommand(useCommand);
 program.addCommand(reviewCommand);
 program.addCommand(lookCommand);
 program.addCommand(helpCommand);
+program.addCommand(settingsCommand);
 
 // 处理未知命令
 program.on('command:*', () => {

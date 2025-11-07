@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs-extra';
-import { getWebDAVConfig, updateReadingProgress, getFileReadingProgress, getReadingProgress } from '../utils/config';
+import { getWebDAVConfig, updateReadingProgress, getFileReadingProgress, getReadingProgress, getGlobalCacheDir } from '../utils/config';
 import { WebDAVService } from '../services/webdav';
 import { ReadingInterface } from '../services/readingInterface';
 import { TextParserService } from '../services/textParser';
@@ -13,8 +13,8 @@ export const lookCommand = new Command('look')
   .argument('[chapter_or_id]', '章节名称或章节ID（可选）')
   .action(async (chapterOrId: string) => {
     try {
-      // 检查是否已经使用了use命令
-      const useInfoPath = path.join(process.cwd(), '.txread_cache', 'current.json');
+      // 检查是否已经使用了use命令，从全局缓存目录读取
+      const useInfoPath = path.join(getGlobalCacheDir(), 'current.json');
       if (!fs.existsSync(useInfoPath)) {
         console.log(chalk.red('请先使用 "txread use" 命令选择要阅读的文件'));
         return;
@@ -37,58 +37,113 @@ export const lookCommand = new Command('look')
       const chapters = textParser.parseChapters(content);
       
       // 确定起始章节
-      let startChapter = chapterOrId;
-      if (!startChapter) {
-        // 如果没有指定章节，尝试从上次阅读位置开始
-        const progress = getFileReadingProgress(filename);
-        if (progress) {
-          startChapter = progress.chapter;
-          console.log(chalk.blue(`从上次阅读位置开始: ${progress.chapter}`));
-        } else {
-          console.log(chalk.blue('从文件开头开始阅读'));
+      let startChapterIndex = 0;
+      
+      // 如果没有指定章节，尝试从review命令保存的页码信息中获取起始章节
+      if (!chapterOrId) {
+        // 检查是否有review命令保存的页码信息
+        const reviewInfoPath = path.join(getGlobalCacheDir(), 'review.json');
+        if (fs.existsSync(reviewInfoPath)) {
+          const reviewInfo = fs.readJsonSync(reviewInfoPath);
+          
+          // 检查review信息是否与当前文件匹配
+          if (reviewInfo.filename === filename) {
+            // 计算当前页的第一章索引
+            const page = reviewInfo.page || 1;
+            const pageSize = reviewInfo.pageSize || 10;
+            const startIndex = (page - 1) * pageSize;
+            
+            // 如果索引有效，从当前页的第一章开始阅读
+            if (startIndex >= 0 && startIndex < chapters.length) {
+              startChapterIndex = startIndex;
+              console.log(chalk.blue(`从当前页第一章节开始阅读: ${chapters[startIndex].title} (第${page}页)`));
+            } else {
+              console.log(chalk.yellow('页码信息无效，从文件开头开始阅读'));
+            }
+          }
+        }
+        
+        // 如果没有找到有效的起始章节，尝试从上次阅读位置开始
+        if (startChapterIndex === 0) {
+          const progress = getFileReadingProgress(filename);
+          if (progress) {
+            if (typeof progress.chapterIndex === 'number' && progress.chapterIndex >= 0 && progress.chapterIndex < chapters.length) {
+              startChapterIndex = progress.chapterIndex;
+              const chapterTitle = chapters[startChapterIndex]?.title ?? progress.chapter;
+              console.log(chalk.blue(`从上次阅读位置开始: 第${startChapterIndex + 1}章 ${chapterTitle}`));
+            } else {
+              const chapterIndex = chapters.findIndex(chapter => chapter.title === progress.chapter);
+              if (chapterIndex >= 0) {
+                startChapterIndex = chapterIndex;
+                console.log(chalk.blue(`从上次阅读位置开始: ${progress.chapter}`));
+              }
+            }
+          } else {
+            console.log(chalk.blue('从文件开头开始阅读'));
+          }
         }
       } else {
         // 检查输入是ID还是章节名称
-        if (startChapter && /^\d+$/.test(startChapter)) {
-          // 输入是ID，转换为章节名称
-          const index = parseInt(startChapter) - 1;
+        if (chapterOrId && /^\d+$/.test(chapterOrId)) {
+          // 输入是ID，转换为章节索引
+          const index = parseInt(chapterOrId) - 1;
           if (index >= 0 && index < chapters.length) {
-            startChapter = chapters[index].title;
-            console.log(chalk.blue(`从指定章节开始阅读: ${startChapter}`));
+            startChapterIndex = index;
+            console.log(chalk.blue(`从指定章节开始阅读: ${chapters[index].title}`));
           } else {
             console.log(chalk.red(`无效的章节ID: ${chapterOrId}`));
             return;
           }
         } else {
-          console.log(chalk.blue(`从指定章节开始阅读: ${startChapter}`));
+          // 输入是章节名称，查找对应索引
+          const chapterIndex = chapters.findIndex(chapter => chapter.title === chapterOrId);
+          if (chapterIndex >= 0) {
+            startChapterIndex = chapterIndex;
+            console.log(chalk.blue(`从指定章节开始阅读: ${chapterOrId}`));
+          } else {
+            console.log(chalk.red(`未找到章节: ${chapterOrId}`));
+            return;
+          }
         }
+      }
+      
+      // 创建WebDAV服务
+      const config = getWebDAVConfig();
+      let webdavService: WebDAVService | null = null;
+      if (config) {
+        webdavService = new WebDAVService();
+        webdavService.initialize(config);
       }
       
       // 创建阅读界面
       const readingInterface = new ReadingInterface(
-        content,
         filename,
-        startChapter,
-        async (progress) => {
-          // 保存阅读进度
-          updateReadingProgress(filename, progress.chapter, progress.position);
-          
-          // 同步到WebDAV
-          const config = getWebDAVConfig();
-          if (config) {
-            const webdavService = new WebDAVService();
-            const initialized = webdavService.initialize(config);
-            if (initialized) {
-              // 获取所有进度并同步到WebDAV
-              const allProgress = getReadingProgress();
-              await webdavService.syncProgress(allProgress);
-              console.log(chalk.green('阅读进度已同步到WebDAV'));
-            }
-          }
-          
-          console.log(chalk.green('阅读进度已保存'));
-        }
+        localFilePath,
+        content,
+        webdavService || new WebDAVService(),
+        startChapterIndex
       );
+      
+      // 设置退出回调
+      readingInterface.onExit = async (progress) => {
+        // 保存阅读进度
+        updateReadingProgress(filename, progress.chapter, progress.position, progress.chapterIndex);
+        
+        // 同步到WebDAV
+        const config = getWebDAVConfig();
+        if (config) {
+          const webdavService = new WebDAVService();
+          const initialized = webdavService.initialize(config);
+          if (initialized) {
+            // 获取所有进度并同步到WebDAV
+            const allProgress = getReadingProgress();
+            await webdavService.syncProgress(allProgress);
+            console.log(chalk.green('阅读进度已同步到WebDAV'));
+          }
+        }
+        
+        console.log(chalk.green('阅读进度已保存'));
+      };
       
       // 启动阅读界面
       // 创建一个Promise来等待阅读界面退出
@@ -105,4 +160,4 @@ export const lookCommand = new Command('look')
     } catch (error) {
       console.error(chalk.red('启动阅读界面失败:'), error);
     }
-  });
+});

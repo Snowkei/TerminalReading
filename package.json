@@ -1,6 +1,6 @@
 {
   "name": "txread",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "终端阅读工具 - 支持WebDAV同步的txt文件阅读器",
   "main": "dist/index.js",
   "bin": {
