@@ -2,6 +2,7 @@ import { Chapter } from '../types';
 import { TextParserService } from './textParser';
 import { WebDAVService } from './webdav';
 import { getReadingSettings } from '../utils/config';
+import { spawn } from 'child_process';
 
 export class ReadingInterface {
   private chapters: Chapter[];
@@ -100,16 +101,64 @@ export class ReadingInterface {
         return;
       }
       
-      // 检查回到顶部快捷键
-      if (this.isCharKeyMatch(keyBindings?.resetPosition, keyStr)) {
-        this.resetPosition();
-        return;
+      // 检查回到顶部快捷键（支持 Home 键及其转义序列）
+      if (keyBindings?.resetPosition && keyBindings.resetPosition.length > 0) {
+        // 检查单个字符按键（如 'R' 或 'r'）
+        if (keyStr.length === 1) {
+          const upperKey = keyStr.toUpperCase();
+          // 直接检查是否匹配配置中的任何单个字符按键
+          const matched = keyBindings.resetPosition.some(binding => {
+            return binding.length === 1 && binding.toUpperCase() === upperKey;
+          });
+          if (matched) {
+            this.resetPosition();
+            return;
+          }
+        }
+        // 再检查转义序列（如 Home 键）
+        if (this.isResetKeyMatch(keyBindings.resetPosition, keyStr)) {
+          this.resetPosition();
+          return;
+        }
+      } else {
+        // 如果配置不存在，使用默认值 'R' 作为后备
+        if (keyStr === 'r' || keyStr === 'R') {
+          this.resetPosition();
+          return;
+        }
       }
 
       // 检查章节列表快捷键
       if (keyBindings?.chapterList.includes('g') && keyStr === 'g') {
         this.showChapterList();
         return;
+      }
+      
+      // 检查滚动到底部快捷键（支持 End 键及其转义序列）
+      if (keyBindings?.scrollDown && keyBindings.scrollDown.length > 0) {
+        // 检查单个字符按键（如 'T' 或 't'）
+        if (keyStr.length === 1) {
+          const upperKey = keyStr.toUpperCase();
+          // 直接检查是否匹配配置中的任何单个字符按键
+          const matched = keyBindings.scrollDown.some(binding => {
+            return binding.length === 1 && binding.toUpperCase() === upperKey;
+          });
+          if (matched) {
+            this.scrollDown();
+            return;
+          }
+        }
+        // 再检查转义序列（如 End 键）
+        if (this.isScrollDownKeyMatch(keyBindings.scrollDown, keyStr)) {
+          this.scrollDown();
+          return;
+        }
+      } else {
+        // 如果配置不存在，使用默认值 'T' 作为后备
+        if (keyStr === 't' || keyStr === 'T') {
+          this.scrollDown();
+          return;
+        }
       }
     });
   }
@@ -134,7 +183,7 @@ export class ReadingInterface {
 
     // 显示文件名和章节标题
     console.log(`===== ${this.fileName} =====`);
-    console.log(`章节: ${currentChapter.title}`);
+    console.log(`章节${this.currentChapterIndex + 1}: ${currentChapter.title}`);
     
     // 显示分隔线
     console.log(''.padEnd(50, '='));
@@ -175,9 +224,20 @@ export class ReadingInterface {
       return key;
     }).join('/') || '-';
     
-    const resetKeys = (keyBindings?.resetPosition ?? []).map(key => {
-      if (key.toUpperCase() === 'R') return 'R';
-      return key;
+    const resetKeys = (keyBindings?.resetPosition ?? []).map(k => {
+      const low = k.toLowerCase();
+      if (low === 'home') return 'Home';
+      if (k.length === 1 && k.toUpperCase() === 'R') return 'R';
+      if (k === '\u001b[H' || k === '\u001b[1~' || k === '\u001bOH') return 'Home';
+      return k;
+    }).join('/') || '-';
+
+    const scrollDownKeys = (keyBindings?.scrollDown ?? []).map(k => {
+      const low = k.toLowerCase();
+      if (low === 'end') return 'End';
+      if (k.length === 1 && k.toUpperCase() === 'T') return 'T';
+      if (k === '\u001b[F' || k === '\u001b[4~' || k === '\u001bOF') return 'End';
+      return k;
     }).join('/') || '-';
 
     const exitKeys = (keyBindings?.exit ?? []).map(key => {
@@ -186,7 +246,7 @@ export class ReadingInterface {
       return key;
     }).join('/') || '-';
     
-    console.log(`操作: ${exitKeys}=退出 ${prevKeys}=上一章 ${nextKeys}=下一章 ${helpKeys}=帮助 ${chapterListKeys}=章节列表 ${resetKeys}=回到顶部`);
+    console.log(`操作: ${exitKeys}=退出 ${prevKeys}=上一章 ${nextKeys}=下一章 ${helpKeys}=帮助 ${chapterListKeys}=章节列表 ${resetKeys}=回到顶部 ${scrollDownKeys}=滚动到底部`);
   }
 
   private previousChapter(): void {
@@ -194,8 +254,11 @@ export class ReadingInterface {
       this.currentChapterIndex--;
       const currentChapter = this.chapters[this.currentChapterIndex];
       this.saveProgress(currentChapter.title, 0, this.currentChapterIndex);
+      // 先更新显示，再调用resetPosition回到顶部
+      this.updateDisplay();
+      // 确保滚动到顶部
+      this.scrollToTop();
     }
-    this.updateDisplay();
   }
 
   private nextChapter(): void {
@@ -203,22 +266,112 @@ export class ReadingInterface {
       this.currentChapterIndex++;
       const currentChapter = this.chapters[this.currentChapterIndex];
       this.saveProgress(currentChapter.title, 0, this.currentChapterIndex);
+      // 先更新显示，再调用resetPosition回到顶部
+      this.updateDisplay();
+      // 确保滚动到顶部
+      this.scrollToTop();
     }
-    this.updateDisplay();
   }
 
   private resetPosition(): void {
-    this.updateDisplay(true);
+    // 直接调用scrollToTop方法
+    this.scrollToTop();
   }
 
-  private isCharKeyMatch(bindingKeys: string[] | undefined, key: string): boolean {
-    if (!bindingKeys?.length) {
+  private scrollToTop(): void {
+    // macOS: 先尝试用 AppleScript 发送 Cmd+↑ 到前台终端
+    if (process.platform === 'darwin' && this.tryMacScrollViewport('up')) {
+      // AppleScript成功后，再执行清屏确保内容可见
+      setTimeout(() => {
+        process.stdout.write('\x1b[H');  // 光标到(1,1)
+      }, 100);
+      return;
+    }
+    
+    // 回退方案：通过清滚动缓冲 + 清屏 + 光标复位模拟"到顶"
+    process.stdout.write('\x1b[3J'); // 清滚动缓冲区
+    process.stdout.write('\x1b[2J'); // 清屏
+    process.stdout.write('\x1b[H');  // 光标到(1,1)
+    console.clear();
+    process.stdout.write('\x1b[H');  // 再确保到(1,1)
+  }
+
+  private scrollDown(): void {
+    // macOS: 先尝试用 AppleScript 发送 Cmd+↓ 到前台终端
+    if (process.platform === 'darwin' && this.tryMacScrollViewport('down')) {
+      // AppleScript成功后，再执行清屏确保内容可见
+      setTimeout(() => {
+        // 将光标移到最后一行
+        const height = process.stdout.rows || 24;
+        process.stdout.write(`\x1b[${height}F`);
+      }, 100);
+      return;
+    }
+    
+    // 回退方案：通过多次换行模拟"到底"
+    // 获取终端高度
+    const height = process.stdout.rows || 24;
+    // 输出足够的换行符，确保内容滚动到底部
+    for (let i = 0; i < height; i++) {
+      console.log();
+    }
+    // 将光标移回最后一行
+    process.stdout.write(`\x1b[${height}F`);
+  }
+
+
+
+  // 仅限 macOS: 使用 AppleScript 发送 Cmd+↑/Cmd+↓，真正滚动终端视口
+  // 需要“系统偏好设置 > 安全性与隐私 > 辅助功能”授权当前终端
+  private tryMacScrollViewport(direction: 'up' | 'down'): boolean {
+    try {
+      const keyCode = direction === 'up' ? 126 : 125; // 126=↑, 125=↓
+      const script = `tell application "System Events" to key code ${keyCode} using command down`;
+      const child = spawn('osascript', ['-e', script], {
+        stdio: 'ignore',
+        detached: true
+      });
+      child.unref();
+      return true;
+    } catch {
       return false;
     }
+  }
+
+  private isResetKeyMatch(bindingKeys: string[] | undefined, key: string): boolean {
+    if (!bindingKeys?.length) return false;
+    
+    // 常见 Home 键序列：ESC [ H、ESC [ 1 ~、ESC O H
+    const isHomeSequence = key === '\u001b[H' || key === '\u001b[1~' || key === '\u001bOH';
+    
     return bindingKeys.some(binding => {
+      const b = binding.toLowerCase();
+      // 如果配置中有 'home'，匹配 Home 键序列
+      if (b === 'home' && isHomeSequence) return true;
+      // 匹配单个字符（如 'R'）
       if (binding.length === 1 && key.length === 1) {
         return binding.toUpperCase() === key.toUpperCase();
       }
+      // 直接匹配转义序列
+      return binding === key;
+    });
+  }
+
+  private isScrollDownKeyMatch(bindingKeys: string[] | undefined, key: string): boolean {
+    if (!bindingKeys?.length) return false;
+    
+    // 常见 End 键序列：ESC [ F、ESC [ 4 ~、ESC O F
+    const isEndSequence = key === '\u001b[F' || key === '\u001b[4~' || key === '\u001bOF';
+    
+    return bindingKeys.some(binding => {
+      const b = binding.toLowerCase();
+      // 如果配置中有 'end'，匹配 End 键序列
+      if (b === 'end' && isEndSequence) return true;
+      // 匹配单个字符（如 'T'）
+      if (binding.length === 1 && key.length === 1) {
+        return binding.toUpperCase() === key.toUpperCase();
+      }
+      // 直接匹配转义序列
       return binding === key;
     });
   }
@@ -264,16 +417,27 @@ export class ReadingInterface {
       return key;
     }).join(' 或 ') || '-';
     
-    const resetKeys = (keyBindings?.resetPosition ?? []).map(key => {
-      if (key.toUpperCase() === 'R') return 'R';
-      return key;
-    }).join(' 或 ') || '-';
+    const resetKeys = (keyBindings?.resetPosition ?? []).map(k => {
+    const low = k.toLowerCase();
+    if (low === 'home') return 'Home';
+    if (k.length === 1 && k.toUpperCase() === 'R') return 'R';
+    if (k === '\u001b[H' || k === '\u001b[1~' || k === '\u001bOH') return 'Home';
+    return k;
+  }).join(' 或 ') || '-';
 
-    const exitKeys = (keyBindings?.exit ?? []).map(key => {
-      if (key === 'q') return 'q';
-      if (key === 'ctrl+c') return 'Ctrl+C';
-      return key;
-    }).join(' 或 ') || '-';
+  const scrollDownKeys = (keyBindings?.scrollDown ?? []).map(k => {
+    const low = k.toLowerCase();
+    if (low === 'end') return 'End';
+    if (k.length === 1 && k.toUpperCase() === 'T') return 'T';
+    if (k === '\u001b[F' || k === '\u001b[4~' || k === '\u001bOF') return 'End';
+    return k;
+  }).join(' 或 ') || '-';
+
+  const exitKeys = (keyBindings?.exit ?? []).map(key => {
+    if (key === 'q') return 'q';
+    if (key === 'ctrl+c') return 'Ctrl+C';
+    return key;
+  }).join(' 或 ') || '-';
     
     console.log(`
 ===== 阅读器帮助 =====
@@ -285,6 +449,7 @@ export class ReadingInterface {
   ${chapterListKeys}: 章节列表
   ${helpKeys}: 显示此帮助
   ${resetKeys}: 回到顶部
+  ${scrollDownKeys}: 滚动到底部
 
 说明:
   - 每次显示整个章节内容
@@ -293,7 +458,7 @@ export class ReadingInterface {
   - 退出时会自动同步到WebDAV
 
 按任意键返回阅读...
-    `);
+  `);
     
     // 等待用户按键
     process.stdin.once('data', (key: Buffer) => {
@@ -334,9 +499,12 @@ export class ReadingInterface {
       return key;
     }).join(' 或 ') || '-';
     
-    const resetKeys = (keyBindings?.resetPosition ?? []).map(key => {
-      if (key.toUpperCase() === 'R') return 'R';
-      return key;
+    const resetKeys = (keyBindings?.resetPosition ?? []).map(k => {
+      const low = k.toLowerCase();
+      if (low === 'home') return 'Home';
+      if (k.length === 1 && k.toUpperCase() === 'R') return 'R';
+      if (k === '\u001b[H' || k === '\u001b[1~' || k === '\u001bOH') return 'Home';
+      return k;
     }).join(' 或 ') || '-';
 
     const exitKeys = (keyBindings?.exit ?? []).map(key => {
@@ -356,7 +524,7 @@ export class ReadingInterface {
         this.exit();
       } else if (keyStr === 'h' || keyStr === '?') {
         this.updateDisplay();
-      } else if (this.isCharKeyMatch(keyBindings?.resetPosition, keyStr)) {
+      } else if (this.isResetKeyMatch(keyBindings?.resetPosition, keyStr)) {
         this.resetPosition();
       } else {
         const chapterIndex = parseInt(keyStr, 10);

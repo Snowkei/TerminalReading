@@ -40,6 +40,7 @@ export interface KeyBindings {
   help: string[]; // 帮助快捷键
   chapterList: string[]; // 章节列表快捷键
   resetPosition?: string[]; // 回到顶部快捷键
+  scrollDown?: string[]; // 滚动到底部快捷键
 }
 
 // 阅读设置类型
@@ -49,6 +50,7 @@ export interface ReadingSettings {
   chaptersPerPage: number; // 每页显示的章节数量
   keyBindings?: KeyBindings; // 自定义按键配置
   clearTerminalOnPageChange?: boolean; // 翻页时是否清空终端
+  scrollTopOnPageChange?: boolean; // 翻章后是否自动回到顶部
 }
 
 // 应用配置类型

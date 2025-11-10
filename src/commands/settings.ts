@@ -14,6 +14,7 @@ export const settingsCommand = new Command('settings')
   .option('--set-lines-per-page <number>', '设置每页显示的行数')
   .option('--set-font-size <number>', '设置字体大小')
   .option('--set-clear-terminal <boolean>', '设置翻页时是否清空终端 (true/false)')
+  .option('--set-scroll-top-on-page-change <boolean>', '设置翻章后是否自动回到顶部 (true/false)')
   .option('--set-prev-keys <keys>', '设置上一章快捷键 (用逗号分隔，如: a,up,[)')
   .option('--set-next-keys <keys>', '设置下一章快捷键 (用逗号分隔，如: d,down,])')
   .option('--set-exit-keys <keys>', '设置退出快捷键 (用逗号分隔，如: q,ctrl+c)')
@@ -39,6 +40,7 @@ export const settingsCommand = new Command('settings')
         console.log(chalk.cyan(`  每页显示行数: ${settings.linesPerPage}`));
         console.log(chalk.cyan(`  字体大小: ${settings.fontSize}`));
         console.log(chalk.cyan(`  翻页时清空终端: ${settings.clearTerminalOnPageChange ? '是' : '否'}`));
+        console.log(chalk.cyan(`  翻章后自动回到顶部: ${settings.scrollTopOnPageChange ? '是' : '否'}`));
         
         if (settings.keyBindings) {
           console.log(chalk.cyan(`  上一章快捷键: ${settings.keyBindings.previousChapter.join(', ')}`));
@@ -107,13 +109,25 @@ export const settingsCommand = new Command('settings')
         updateReadingSettings({ clearTerminalOnPageChange: clearTerminal === 'true' });
         console.log(chalk.green(`已设置翻页时清空终端为: ${clearTerminal === 'true' ? '是' : '否'}`));
       }
+
+      // 设置翻章后是否自动回到顶部
+      if (options.setScrollTopOnPageChange !== undefined) {
+        const flag = options.setScrollTopOnPageChange.toLowerCase();
+        if (flag !== 'true' && flag !== 'false') {
+          console.log(chalk.red('翻章回到顶部设置必须是 true 或 false'));
+          return;
+        }
+        updateReadingSettings({ scrollTopOnPageChange: flag === 'true' });
+        console.log(chalk.green(`已设置翻章后自动回到顶部为: ${flag === 'true' ? '是' : '否'}`));
+      }
       
       // 设置自定义按键
       const parseKeyBindings = (keysStr: string, preserveCase = false): string[] => {
         const normalized = keysStr
           .split(',')
           .map(key => (preserveCase ? key.trim() : key.trim().toLowerCase()))
-          .filter(key => key.length > 0);
+          .filter(key => key.length > 0)
+          .map(key => key === 'home' ? 'home' : key); // 显式支持 home 名称
         return normalized;
       };
       

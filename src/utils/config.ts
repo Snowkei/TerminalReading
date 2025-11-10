@@ -24,7 +24,8 @@ export function mergeKeyBindings(
     exit: [],
     help: [],
     chapterList: [],
-    resetPosition: []
+    resetPosition: [],
+    scrollDown: []
   };
 
   const result: KeyBindings = {
@@ -35,6 +36,9 @@ export function mergeKeyBindings(
     chapterList: [...defaultBindings.chapterList],
     resetPosition: defaultBindings.resetPosition
       ? [...defaultBindings.resetPosition]
+      : undefined,
+    scrollDown: defaultBindings.scrollDown
+      ? [...defaultBindings.scrollDown]
       : undefined
   };
 
@@ -55,10 +59,27 @@ export function mergeKeyBindings(
     if (binding.chapterList) {
       result.chapterList = [...binding.chapterList];
     }
-    if (binding.resetPosition) {
+    if (binding.resetPosition && binding.resetPosition.length > 0) {
       result.resetPosition = [...binding.resetPosition];
     }
+    if (binding.scrollDown && binding.scrollDown.length > 0) {
+      result.scrollDown = [...binding.scrollDown];
+    }
   });
+
+  // 确保 resetPosition 始终有默认值（如果用户没有配置）
+  if (!result.resetPosition || result.resetPosition.length === 0) {
+    result.resetPosition = defaultBindings.resetPosition 
+      ? [...defaultBindings.resetPosition] 
+      : ['R', 'home'];
+  }
+
+  // 确保 scrollDown 始终有默认值（如果用户没有配置）
+  if (!result.scrollDown || result.scrollDown.length === 0) {
+    result.scrollDown = defaultBindings.scrollDown 
+      ? [...defaultBindings.scrollDown] 
+      : ['T', 'end'];
+  }
 
   return result;
 }
@@ -74,9 +95,11 @@ export const DEFAULT_READING_SETTINGS: ReadingSettings = {
     exit: ['q', 'ctrl+c'],
     help: ['h', '?'],
     chapterList: ['g'],
-    resetPosition: ['R']
+    resetPosition: ['R', 'home'],
+    scrollDown: ['T', 'end']
   },
-  clearTerminalOnPageChange: true
+  clearTerminalOnPageChange: true,
+  scrollTopOnPageChange: true
 };
 
 // 默认应用配置
