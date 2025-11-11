@@ -67,14 +67,88 @@ export const useCommand = new Command('use')
       // 检查输入是ID还是文件名
       let targetFile;
       if (/^\d+$/.test(filenameOrId)) {
-        // 输入是ID，转换为索引
+        // 输入是ID，需要先获取当前文件列表来映射ID到文件名
+        // 获取本地文件列表以获取最新ID映射
+        const localCacheDir = getGlobalCacheDir();
+        let localFileList: string[] = [];
+        
+        if (fs.existsSync(localCacheDir)) {
+          localFileList = fs.readdirSync(localCacheDir)
+            .filter(file => {
+              const filePath = path.join(localCacheDir, file);
+              // 过滤掉.DS_Store文件
+              if (file === '.DS_Store') {
+                return false;
+              }
+              return fs.statSync(filePath).isFile();
+            });
+        }
+        
+        // 找出本地和远程都有的文件
+        const remoteFileNames = new Set(fileList.map(file => file.name));
+        const commonFiles = localFileList.filter(fileName => remoteFileNames.has(fileName));
+        
+        // 合并文件列表，避免重复
+        const allFiles = [...fileList];
+        
+        // 添加仅存在于本地的文件
+        for (const fileName of localFileList) {
+          if (!remoteFileNames.has(fileName)) {
+            const localFilePath = path.join(localCacheDir, fileName);
+            const stats = fs.statSync(localFilePath);
+            
+            allFiles.push({
+              name: fileName,
+              path: localFilePath,
+              size: stats.size,
+              lastModified: stats.mtime,
+              hasProgress: false,
+              progress: undefined,
+              isLocalOnly: true
+            });
+          }
+        }
+        
+        // 按最后修改时间排序
+        allFiles.sort((a, b) => {
+          const timeA = a.lastModified instanceof Date ? a.lastModified.getTime() : new Date(a.lastModified).getTime();
+          const timeB = b.lastModified instanceof Date ? b.lastModified.getTime() : new Date(b.lastModified).getTime();
+          return timeB - timeA;
+        });
+        
+        // 现在根据ID查找文件
         const index = parseInt(filenameOrId) - 1;
-        if (index >= 0 && index < fileList.length) {
-          targetFile = fileList[index];
+        if (index >= 0 && index < allFiles.length) {
+          const fileFromId = allFiles[index];
+          // 使用文件名在远程文件列表中查找
+          targetFile = fileList.find(file => file.name === fileFromId.name);
+          
+          // 如果在远程找不到，说明是本地独有的文件
+          if (!targetFile && fileFromId.isLocalOnly) {
+            targetFile = fileFromId;
+          }
         }
       } else {
         // 输入是文件名
         targetFile = fileList.find(file => file.name === filenameOrId);
+        
+        // 如果在远程找不到，尝试在本地查找
+        if (!targetFile) {
+          const localCacheDir = getGlobalCacheDir();
+          const localFilePath = path.join(localCacheDir, filenameOrId);
+          if (fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile()) {
+            const stats = fs.statSync(localFilePath);
+            targetFile = {
+              name: filenameOrId,
+              path: localFilePath,
+              size: stats.size,
+              lastModified: stats.mtime,
+              hasProgress: false,
+              progress: undefined,
+              isLocalOnly: true
+            };
+          }
+        }
       }
       
       if (!targetFile) {

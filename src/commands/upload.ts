@@ -56,6 +56,12 @@ export const uploadCommand = new Command('upload')
           const filePath = path.join(localPath, file);
           const remoteFilePath = path.posix.join(remotePath, file);
           
+          // 过滤掉.DS_Store文件
+          if (file === '.DS_Store') {
+            console.log(chalk.yellow(`跳过系统文件: ${file}`));
+            continue;
+          }
+          
           if (fs.statSync(filePath).isFile()) {
             const success = await webdavService.uploadFileWithProgress(filePath, remoteFilePath, file);
             if (success) {

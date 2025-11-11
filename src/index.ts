@@ -12,6 +12,7 @@ import { reviewCommand } from './commands/review';
 import { lookCommand } from './commands/look';
 import { helpCommand } from './commands/help';
 import { settingsCommand } from './commands/settings';
+import { deleteCommand } from './commands/delete';
 
 // 确保当前文件有可执行权限
 const currentFilePath = __filename;
@@ -42,6 +43,7 @@ program.addCommand(reviewCommand);
 program.addCommand(lookCommand);
 program.addCommand(helpCommand);
 program.addCommand(settingsCommand);
+program.addCommand(deleteCommand);
 
 // 处理未知命令
 program.on('command:*', () => {

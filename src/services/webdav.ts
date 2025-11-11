@@ -315,4 +315,20 @@ export class WebDAVService {
       return null;
     }
   }
+
+  // 删除远程文件
+  async deleteFile(remotePath: string): Promise<boolean> {
+    if (!this.client) {
+      console.error('WebDAV客户端未初始化');
+      return false;
+    }
+
+    try {
+      await this.client.deleteFile(remotePath);
+      return true;
+    } catch (error) {
+      console.error('删除远程文件失败:', error);
+      return false;
+    }
+  }
 }

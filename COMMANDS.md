@@ -63,6 +63,7 @@ npm start -- upload -p /documents/ -t "/path/to/local/directory/"
 - 如果是目录，将递归上传目录中的所有文件
 - 远程路径如果不存在，会自动创建
 - 上传成功后会显示成功和失败的文件数量
+- 系统会自动过滤.DS_Store等系统文件，不会上传这些文件
 
 ---
 
@@ -77,6 +78,9 @@ npm start -- list [options]
 
 #### 选项
 - `-p, --path <path>`: 远程路径（可选，默认：/）
+- `--page <page>`: 页码（可选，默认：1）
+- `--page-size <size>`: 每页显示数量（可选，默认：10）
+- `--no-upload`: 不上传本地缺失的文件
 
 #### 示例
 ```bash
@@ -88,6 +92,12 @@ npm start -- list -p /books/
 
 # 列出嵌套目录下的文件
 npm start -- list -p /documents/novels/
+
+# 分页显示文件列表
+npm start -- list --page 2 --page-size 20
+
+# 列出文件但不自动上传本地缺失的文件
+npm start -- list --no-upload
 ```
 
 #### 说明
@@ -95,6 +105,10 @@ npm start -- list -p /documents/novels/
 - 阅读进度状态包括：未开始、进行中、已完成
 - 支持中文文件名显示
 - 文件ID可用于快速选择文件，例如：`npm start -- use 1`
+- 文件ID基于文件名生成，即使文件列表发生变化，已存在文件的ID也不会改变
+- 支持分页显示，方便管理大量文件
+- 系统会自动过滤.DS_Store等系统文件，不会显示在文件列表中
+- 默认会上传本地存在但远程不存在的文件，使用--no-upload选项可禁用此行为
 
 ---
 
@@ -124,10 +138,12 @@ npm start -- use "那货带去的景区能修仙考古！.txt"
 
 #### 说明
 - 文件可以从list命令输出的ID列获取
+- 文件ID基于文件名生成，即使文件列表发生变化，已存在文件的ID也不会改变
 - 文件将从WebDAV服务器下载到本地缓存目录
 - 下载完成后会显示上次阅读位置和阅读时间
 - 选择文件后，可以使用look命令开始阅读
 - 如果本地缓存文件不存在，会自动从服务器重新下载
+- 系统会自动过滤.DS_Store等系统文件，不会显示在文件列表中
 
 ---
 
@@ -137,11 +153,15 @@ npm start -- use "那货带去的景区能修仙考古！.txt"
 
 #### 语法
 ```bash
-npm start -- review [filename_or_id]
+npm start -- review [filename_or_id] [options]
 ```
 
 #### 参数
 - `filename_or_id`: 文件名或文件ID（可选，如果已使用use命令选择文件）
+
+#### 选项
+- `-p, --page <number>`: 指定要显示的页码（可选，默认：1）
+- `-s, --page-size <number>`: 每页显示的章节数量（可选，使用settings中的默认值）
 
 #### 示例
 ```bash
@@ -153,13 +173,19 @@ npm start -- review "小说.txt"
 
 # 使用文件ID查看章节目录（从list命令获取）
 npm start -- review 1
+
+# 分页查看章节目录
+npm start -- review --page 2 --page-size 20
 ```
 
 #### 说明
+- 文件ID基于文件名生成，即使文件列表发生变化，已存在文件的ID也不会改变
 - 自动识别文件中的章节标题（通常以"第X章"开头）
 - 显示章节ID和章节标题
 - 章节ID可用于快速跳转到指定章节，例如：`npm start -- look 5`
 - 可以查看文件的整体结构，方便导航
+- 支持分页显示，方便管理大量章节
+- 系统会自动过滤.DS_Store等系统文件，不会显示在文件列表中
 
 ---
 
@@ -196,6 +222,7 @@ npm start -- look "第十章 开始"
 - 阅读界面支持全屏显示，提供舒适的阅读体验
 - 自动分页，适应终端窗口大小
 - 支持章节导航和页码跳转
+- 系统会自动过滤.DS_Store等系统文件，不会显示在文件列表中
 
 ---
 
@@ -260,7 +287,52 @@ npm start -- settings --sync
 
 ---
 
-### 8. help - 帮助信息
+### 8. delete - 删除文件
+
+删除本地和远程的文件。
+
+#### 语法
+```bash
+npm start -- delete <file> [options]
+```
+
+#### 参数
+- `file`: 要删除的文件名或文件ID（必需）
+
+#### 选项
+- `-p, --path <path>`: 远程路径（可选，默认：/）
+- `--local-only`: 仅删除本地文件
+- `--remote-only`: 仅删除远程文件
+
+#### 示例
+```bash
+# 使用文件名删除文件（同时删除本地和远程）
+npm start -- delete "小说.txt"
+
+# 使用文件ID删除文件（从list命令获取）
+npm start -- delete 1
+
+# 仅删除本地文件
+npm start -- delete "小说.txt" --local-only
+
+# 仅删除远程文件
+npm start -- delete "小说.txt" --remote-only
+
+# 删除指定远程路径下的文件
+npm start -- delete "小说.txt" -p /books/
+```
+
+#### 说明
+- 文件ID可以从list命令输出的ID列获取
+- 默认情况下，会同时删除本地和远程的文件
+- 使用--local-only选项仅删除本地缓存文件
+- 使用--remote-only选项仅删除WebDAV服务器上的文件
+- 删除操作不可撤销，请谨慎操作
+- 系统会自动过滤.DS_Store等系统文件，不会显示在文件列表中
+
+---
+
+### 9. help - 帮助信息
 
 显示帮助信息。
 

@@ -30,6 +30,7 @@ export interface FileInfo {
   lastModified: Date;
   hasProgress?: boolean;
   progress?: ReadingProgress;
+  isLocalOnly?: boolean; // 是否仅存在于本地
 }
 
 // 自定义按键配置类型

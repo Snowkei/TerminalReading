@@ -8,10 +8,12 @@
 - 📖 舒适的终端阅读界面，支持翻页和章节跳转
 - ☁️ 通过WebDAV实现跨设备阅读进度同步
 - 📝 自动记录阅读位置，下次打开从上次位置继续
-- 📁 支持文件上传和管理
+- 📁 支持文件上传、管理和删除
 - ⌨️ 丰富的快捷键操作
 - 🌐 全局文件缓存，文件只需下载一次，所有终端会话共享
 - ⚙️ 可配置的阅读设置，支持跨设备同步
+- 🆔 稳定的文件ID系统，基于文件名生成，确保文件引用不变
+- 📄 分页显示支持，方便管理大量文件和章节
 
 ## 安装
 
@@ -115,30 +117,37 @@ txread list [options]
 
 选项：
 - `-p, --path <path>`: 远程路径（默认：/）
+- `--page <page>`: 页码（默认：1）
+- `--page-size <size>`: 每页显示数量（默认：10）
+- `--no-upload`: 不上传本地缺失的文件
+
+**文件ID**：文件列表中的ID基于文件名生成，即使文件列表发生变化，已存在文件的ID也不会改变，确保文件引用的稳定性。
 
 ### use - 选择文件
 
 选择要阅读的文件，下载到全局缓存。
 
 ```bash
-txread use <filename>
+txread use <filename_or_id>
 ```
 
 参数：
-- `filename`: 要阅读的文件名
+- `filename_or_id`: 文件名或文件ID（从list命令获取）
 
 **缓存优化**：如果文件已存在于全局缓存中，系统会直接使用本地缓存，无需重新下载，并自动匹配对应的阅读进度和章节分页。这样可以提高响应速度，减少不必要的网络请求。
+
+**文件ID**：可以使用从list命令获取的文件ID来选择文件，文件ID基于文件名生成，确保稳定性。
 
 ### review - 章节目录
 
 解析文件，展示章节目录。
 
 ```bash
-txread review [filename] [options]
+txread review [filename_or_id] [options]
 ```
 
 参数：
-- `filename`: 文件名（可选，如果已使用use命令选择文件）
+- `filename_or_id`: 文件名或文件ID（从list命令获取，可选，如果已使用use命令选择文件）
 
 选项：
 - `-p, --page <number>`: 指定要显示的页码（默认：1）
@@ -158,6 +167,8 @@ txread review --page-size 5
 # 查看第3页，每页显示15个章节
 txread review --page 3 --page-size 15
 ```
+
+**文件ID**：可以使用从list命令获取的文件ID来查看文件章节，文件ID基于文件名生成，确保稳定性。
 
 ### look - 开始阅读
 
@@ -209,6 +220,24 @@ txread settings --upload
 # 从WebDAV同步配置
 txread settings --sync
 ```
+
+### delete - 删除文件
+
+删除本地和远程的文件。
+
+```bash
+txread delete <filename_or_id> [options]
+```
+
+参数：
+- `filename_or_id`: 文件名或文件ID（从list命令获取）
+
+选项：
+- `-p, --path <path>`: 远程路径（默认：/）
+- `--local-only`: 仅删除本地文件
+- `--remote-only`: 仅删除远程文件
+
+**文件ID**：可以使用从list命令获取的文件ID来删除文件，文件ID基于文件名生成，确保稳定性。
 
 ### help - 帮助信息
 
