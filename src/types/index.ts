@@ -42,6 +42,7 @@ export interface KeyBindings {
   chapterList: string[]; // 章节列表快捷键
   resetPosition?: string[]; // 回到顶部快捷键
   scrollDown?: string[]; // 滚动到底部快捷键
+  bossKey?: string[]; // 老板键快捷键
 }
 
 // 阅读设置类型

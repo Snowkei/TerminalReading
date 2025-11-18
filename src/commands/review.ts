@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs-extra';
-import { getWebDAVConfig, getGlobalCacheDir, getGlobalCacheFilePath, ensureGlobalCacheDir, getReadingSettings } from '../utils/config';
+import { getWebDAVConfig, getGlobalCacheDir, getGlobalCacheFilePath, ensureGlobalCacheDir, getReadingSettings, getFileReadingProgress } from '../utils/config';
 import { WebDAVService } from '../services/webdav';
 import { TextParserService } from '../services/textParser';
 

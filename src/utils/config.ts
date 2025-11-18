@@ -25,7 +25,8 @@ export function mergeKeyBindings(
     help: [],
     chapterList: [],
     resetPosition: [],
-    scrollDown: []
+    scrollDown: [],
+    bossKey: []
   };
 
   const result: KeyBindings = {
@@ -39,6 +40,9 @@ export function mergeKeyBindings(
       : undefined,
     scrollDown: defaultBindings.scrollDown
       ? [...defaultBindings.scrollDown]
+      : undefined,
+    bossKey: defaultBindings.bossKey
+      ? [...defaultBindings.bossKey]
       : undefined
   };
 
@@ -65,6 +69,9 @@ export function mergeKeyBindings(
     if (binding.scrollDown && binding.scrollDown.length > 0) {
       result.scrollDown = [...binding.scrollDown];
     }
+    if (binding.bossKey && binding.bossKey.length > 0) {
+      result.bossKey = [...binding.bossKey];
+    }
   });
 
   // 确保 resetPosition 始终有默认值（如果用户没有配置）
@@ -79,6 +86,13 @@ export function mergeKeyBindings(
     result.scrollDown = defaultBindings.scrollDown 
       ? [...defaultBindings.scrollDown] 
       : ['T', 'end'];
+  }
+
+  // 确保 bossKey 始终有默认值（如果用户没有配置）
+  if (!result.bossKey || result.bossKey.length === 0) {
+    result.bossKey = defaultBindings.bossKey 
+      ? [...defaultBindings.bossKey] 
+      : ['`'];
   }
 
   return result;
@@ -96,7 +110,8 @@ export const DEFAULT_READING_SETTINGS: ReadingSettings = {
     help: ['h', '?'],
     chapterList: ['g'],
     resetPosition: ['R', 'home'],
-    scrollDown: ['T', 'end']
+    scrollDown: ['T', 'end'],
+    bossKey: ['`'] // 使用反引号作为默认老板键
   },
   clearTerminalOnPageChange: true,
   scrollTopOnPageChange: true
